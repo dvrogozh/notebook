@@ -6,20 +6,27 @@ XPU backend is available in PyTorch starting from PyTorch 2.4 and requires Intel
 
 ## Intel GPUs supported for PyTorch XPU backend by Intel
 
+> [!NOTE]
+> List of supported GPUs requires clarification. See [pytorch/pytorch#138347] for details. Doing the best effort here to deduce list of GPUs with links to Intel registry descriptions at https://ark.intel.com.
+
 Intel GPUs supported for PyTorch XPU backend are documented by Intel per PyTorch release:
 
 * [Here][prereq-2.5] for PyTorch 2.5
 * [Here][prereq-2.4] for PyTorch 2.4
 
-Not all GPUs are declared for support by all Operating Systems. Tables below provide summary:
+Not all GPUs are declared for support by all Operating Systems:
 
-* For Linux (Ubuntu, RHEL, SUSE) – Server GPUs are supported (starting from PyTorch 2.4):
+* For Linux (Ubuntu, RHEL, SUSE):
 
 |                                     | `2.4`      | `2.5`      |
 | ----------------------------------- | :--------: | :--------: |
+| **Server GPUs:**                    |            |            |
 | [Intel® Data Center GPU Max Series] | &#x2713;   | &#x2713;   |
+| **Discrete Client GPUs:**           |            |            |
+| [Intel® Arc™ A-Series Graphics]     |            | &#x2713;   |
 
-* For Windows (10 and 11, including WSL2) – Client GPUs are supported (starting from PyTorch 2.5):
+
+* For Windows (10 and 11, including WSL2, support available starting from PyTorch 2.5):
 
 |                                     | `2.5`      |
 | ----------------------------------- | :--------: |
@@ -27,7 +34,6 @@ Not all GPUs are declared for support by all Operating Systems. Tables below pro
 | [Intel® Arc™ A-Series Graphics]     | &#x2713;   |
 | **Integrated Client GPUs:**         |            |
 | [Meteor Lake]                       | &#x2713;   |
-| [Lunar Lake]                        | &#x2713;   |
 
 ## Intel GPUs for which PyTorch XPU has pre-built eager mode kernels
 
@@ -94,3 +100,4 @@ At the moment PyTorch XPU has no built-in checks to verify current GPU against s
 [oneDNN]: https://github.com/oneapi-src/oneDNN
 
 [pytorch/pytorch#131799]: https://github.com/pytorch/pytorch/issues/131799
+[pytorch/pytorch#138347]: https://github.com/pytorch/pytorch/issues/138347
