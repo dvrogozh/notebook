@@ -9,7 +9,7 @@ PyTorch XPU backend supports select Intel GPUs. That's documented by Intel per P
 * [Here][prereq-2.5] for PyTorch 2.5
 * [Here][prereq-2.4] for PyTorch 2.4
 
-For details, see [Hardware supported by PyTorch XPU backend](hardware-supported-by-pytorch-xpu.md).
+For detailed review, see [Hardware supported by PyTorch XPU backend](hardware-supported-by-pytorch-xpu.md).
 
 ## Prerequisites installation
 
@@ -20,7 +20,11 @@ Prerequisites installation is documented by Intel per PyTorch release:
 
 From these instructions, installation involves 2 steps:
 
-1. Installation of Intel GPU driver packages following [separate documentation](https://dgpu-docs.intel.com/driver/installation.html#installation)
+1. Installation of Intel GPU driver packages following separate documentation depending on the GPU type:
+
+   * [Documentation](https://dgpu-docs.intel.com/driver/installation.html#installation) for Server GPUs
+   * [Documentation](https://dgpu-docs.intel.com/driver/client/overview.html#installing-client-gpus) for Client GPUs
+
 2. Installation of oneAPI packages with provided instruction
 
 These steps will configure 2 separate package repositories which at the moment follow different architectures. Intel GPU drivers repository provides system wide installation of the packages (files got installed to `/usr`, `/etc`, etc.) with no further activation needed. Distinctly, oneAPI packages are installed as alternate packages to a special location (at `/opt/intel`) requiring special activation steps provided below as they appear in the documentation for PyTorch 2.5:
@@ -38,10 +42,18 @@ It's required to install few prerequisite components to build and run PyTorch wi
 
 For Ubuntu 22.04 and PyTorch 2.5 these can be installed as follows:
 ```
+# GPU driver components, Intel LTS and rolling releases:
 sudo apt install -y \
   intel-level-zero-gpu \
   intel-opencl-icd \
   level-zero-dev
+
+# Rolling releases only
+# NOTE: ocloc is included in intel-opencl-icd in LTS release
+sudo apt install -y \
+  intel-ocloc
+
+# oneAPI components
 sudo apt install -y \
   intel-for-pytorch-gpu-dev-0.5 \
   intel-pti-dev
