@@ -179,6 +179,9 @@ See known build and version related issues below.
 ### PyTorch 2.5
 
 * [intel/intel-xpu-backend-for-triton#2279]: No module named `triton.ops`
+* [pytorch/pytorch#135766]: xpu: torchaudio build fails with torch::xpurt target not found with cmake<3.25
+
+  * Apply [pytorch/pytorch#135767] for the fix
 
 ### PyTorch 2.4
 
@@ -188,5 +191,8 @@ See known build and version related issues below.
 [prereq-2.4]: https://www.intel.com/content/www/us/en/developer/articles/tool/pytorch-prerequisites-for-intel-gpu/2-4.html
 
 [pytorch/pytorch#130099]: https://github.com/pytorch/pytorch/issues/130999
+[pytorch/pytorch#135766]: https://github.com/pytorch/pytorch/issues/135766
+
+[pytorch/pytorch#135767]: https://github.com/pytorch/pytorch/pull/135767
 
 [intel/intel-xpu-backend-for-triton#2279]: https://github.com/intel/intel-xpu-backend-for-triton/issues/2279
