@@ -13,6 +13,10 @@ This repository contains my personal notes on using software components. I hope 
 * [Running Accelerate with PyTorch XPU backend](huggingface/accelerate-with-pytorch-xpu.md)
 * [Running Transformers with PyTorch XPU backend](huggingface/transformers-with-pytorch-xpu.md)
 
+## Meta-LLama
+
+* [Run LLama Stack on Intel GPU](meta-llama/run-llama-stack-on-intel-gpu.md)
+
 ## PyTorch
 
 * [Hardware supported by PyTorch XPU backend](pytorch/hardware-supported-by-pytorch-xpu.md)
