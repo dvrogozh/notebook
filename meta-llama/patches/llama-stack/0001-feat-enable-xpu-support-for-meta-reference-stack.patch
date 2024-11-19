@@ -1,0 +1,120 @@
+From 3295a112e6e40c1f9cf80374833a20ebad648848 Mon Sep 17 00:00:00 2001
+From: Dmitry Rogozhkin <dmitry.v.rogozhkin@intel.com>
+Date: Mon, 18 Nov 2024 16:00:55 -0800
+Subject: [PATCH] feat: enable xpu support for meta-reference stack
+
+Requires: https://github.com/meta-llama/llama-models/pull/165
+Signed-off-by: Dmitry Rogozhkin <dmitry.v.rogozhkin@intel.com>
+---
+ .../inference/meta_reference/generation.py    | 38 +++++++++++++------
+ 1 file changed, 26 insertions(+), 12 deletions(-)
+
+diff --git a/llama_stack/providers/inline/inference/meta_reference/generation.py b/llama_stack/providers/inline/inference/meta_reference/generation.py
+index 38c9824..aec503c 100644
+--- a/llama_stack/providers/inline/inference/meta_reference/generation.py
++++ b/llama_stack/providers/inline/inference/meta_reference/generation.py
+@@ -89,7 +89,10 @@ class Llama:
+         llama_model = model.core_model_id.value
+ 
+         if not torch.distributed.is_initialized():
+-            torch.distributed.init_process_group("nccl")
++            if torch.cuda.is_available():
++                torch.distributed.init_process_group("nccl")
++            else:
++                torch.distributed.init_process_group("gloo")
+ 
+         model_parallel_size = config.model_parallel_size
+ 
+@@ -97,7 +100,14 @@ class Llama:
+             initialize_model_parallel(model_parallel_size)
+ 
+         local_rank = int(os.environ.get("LOCAL_RANK", 0))
+-        torch.cuda.set_device(local_rank)
++        if torch.cuda.is_available():
++            device = 'cuda'
++            torch.cuda.set_device(local_rank)
++        elif torch.xpu.is_available():
++            device = 'xpu'
++            torch.xpu.set_device(local_rank)
++        else:
++            raise NotImplementedError("Devices other than CUDA and XPU are not supported yet")
+ 
+         # seed must be the same in all processes
+         if config.torch_seed is not None:
+@@ -175,19 +185,21 @@ class Llama:
+                     "Currently int4 and fp8 are the only supported quantization methods."
+                 )
+         else:
+-            if torch.cuda.is_bf16_supported():
+-                torch.set_default_tensor_type(torch.cuda.BFloat16Tensor)
++            if torch.cuda.is_bf16_supported() or torch.xpu.is_bf16_supported():
++                torch.set_default_dtype(torch.bfloat16)
+             else:
+-                torch.set_default_tensor_type(torch.cuda.HalfTensor)
++                torch.set_default_dtype(torch.half)
+             if model_args.vision_chunk_size > 0:
+                 model = CrossAttentionTransformer(model_args)
+                 model.setup_cache(model_args.max_batch_size, torch.bfloat16)
+             else:
+-                model = Transformer(model_args)
++                model = Transformer(model_args, device=device)
+             model.load_state_dict(state_dict, strict=False)
+ 
++        model.to(device)
++
+         print(f"Loaded in {time.time() - start_time:.2f} seconds")
+-        return Llama(model, tokenizer, model_args, llama_model)
++        return Llama(model, tokenizer, model_args, llama_model, device)
+ 
+     def __init__(
+         self,
+@@ -195,12 +207,14 @@ class Llama:
+         tokenizer: Tokenizer,
+         args: ModelArgs,
+         llama_model: str,
++        device: torch.device = torch.device('cuda')
+     ):
+         self.args = args
+         self.model = model
+         self.tokenizer = tokenizer
+         self.formatter = ChatFormat(tokenizer)
+         self.llama_model = llama_model
++        self.device = device
+ 
+     @torch.inference_mode()
+     def generate(
+@@ -254,14 +268,14 @@ class Llama:
+             )
+ 
+         pad_id = self.tokenizer.pad_id
+-        tokens = torch.full((bsz, total_len), pad_id, dtype=torch.long, device="cuda")
++        tokens = torch.full((bsz, total_len), pad_id, dtype=torch.long, device=self.device)
+         for k, t in enumerate(prompt_tokens):
+-            tokens[k, : len(t)] = torch.tensor(t, dtype=torch.long, device="cuda")
++            tokens[k, : len(t)] = torch.tensor(t, dtype=torch.long, device=self.device)
+         if logprobs:
+             token_logprobs = torch.zeros_like(tokens, dtype=torch.float)
+ 
+         prev_pos = 0
+-        eos_reached = torch.tensor([False] * bsz, device="cuda")
++        eos_reached = torch.tensor([False] * bsz, device=self.device)
+         input_text_mask = tokens != pad_id
+         if min_prompt_len == total_len:
+             # TODO(ashwin): unify this branch with the one below and figure out multimodal crap
+@@ -273,11 +287,11 @@ class Llama:
+                 ignore_index=pad_id,
+             )
+ 
+-        stop_tokens = torch.tensor(self.tokenizer.stop_tokens, device="cuda")
++        stop_tokens = torch.tensor(self.tokenizer.stop_tokens, device=self.device)
+         for cur_pos in range(min_prompt_len, total_len):
+             if is_vision:
+                 position_ids = torch.arange(
+-                    prev_pos, cur_pos, dtype=torch.long, device="cuda"
++                    prev_pos, cur_pos, dtype=torch.long, device=self.device
+                 )
+                 logits = self.model.forward(
+                     position_ids,
+-- 
+2.34.1
+
