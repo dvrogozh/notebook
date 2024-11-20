@@ -2,11 +2,14 @@
 
 ## Overview
 
+> [!WARNING]
+> llama-stack is currently work in progress and is constantly evolving. Pay attention on the stack version (commit id or tag) being described below.
+
 [llama-stack] provides building blocks to build llama applications. It contains API specifications, API providers and distributions. Distributions can be used to build llama stack servers to serve applications.
 
-As of [0784284] llama-stack requires patches to support Intel GPUs via PyTorch XPU backend:
+As of [91e7efb] llama-stack requires patches to support Intel GPUs via PyTorch XPU backend:
 
-* Patches for [llama-stack] at [0784284]:
+* Patches for [llama-stack] at [91e7efb]:
 
   * [0001-feat-enable-xpu-support-for-meta-reference-stack.patch]
 
@@ -43,6 +46,9 @@ As of now Docker images are not available for PyTorch XPU backend. Below we will
 
 ## Build meta-reference stack
 
+> [!NOTE]
+> See [Meta Reference Distribution] for details.
+
 Let's start with meta-reference-gpu stack which is actually designed to work with NVidia GPUs, but we will further adjust it to work with Intel GPUs. To build it, execute:
 
 ```
@@ -59,7 +65,7 @@ git clone https://github.com/meta-llama/llama-models.git && cd llama-models
 git reset --hard ec6b563
 git am $PATCHES/llama-models/0001-Add-optional-arg-to-specify-device-for-Transformer-m.patch
 git am $PATCHES/llama-models/0002-Add-option-to-initialize-multimodal-model-on-devices.patch
-pip uninstall llama-models
+pip uninstall -y llama-models
 pip install -e .
 ```
 
@@ -67,7 +73,7 @@ pip install -e .
 
 ```
 conda activate llamastack-meta-reference-gpu
-pip uninstall torch torchvision
+pip uninstall -y torch torchvision
 pip install torch torchvision --index-url https://download.pytorch.org/whl/nightly/xpu
 ```
 
@@ -75,94 +81,14 @@ After that meta-reference stack should be able to work on Intel GPUs supported b
 
 ## Preparing to serve
 
-Before starting the server do the following:
+> [!NOTE]
+> Note that llama-stack model identifiers differ from those used at Huggingface side (for our model that's `Llama3.2-3B-Instruct` vs. `meta-llama/Llama-3.2-3B-Instruct`). Use `llama model list` to list models supported by llama-stack and their identifiers.
+> When working with llama-stack API use llama-stack model identifiers.
 
-* Download checkpoints for the model you plan to serve. Checkpoints can be downloaded from different sources. For example, using Huggingface as a source:
+Before starting the server download checkpoints for the model you plan to serve. Checkpoints can be downloaded from different sources. For example, from Huggingface:
 
 ```
 llama download --model-id Llama3.2-3B-Instruct --source huggingface
-```
-
-* Adjust distribution configuration per your needs to be able to serve. This might include the following:
-
-  * Consider to comment out `chromadb`, `pgvector` and/or other memory providers which you don't plan to use. Not doing so will result in a failure to start LLama Server if the service associated with memory provider won't be found. It's enough to have just `inline::faiss` memory provider if you plan experiments local to your system.
-
-  * Add model to the list of served models following [this description](https://github.com/meta-llama/llama-stack-apps/pull/114#pullrequestreview-2436905656). Otherwise server won't be able to handle incoming requests.
-
-Overall, here is a distributions configuration which worked:
-
-```
-$ cat ~/.llama/distributions/llamastack-meta-reference-gpu/meta-reference-gpu-run.yaml
-version: '2'
-built_at: '2024-11-19T14:04:22.700025'
-image_name: meta-reference-gpu
-docker_image: null
-conda_env: meta-reference-gpu
-apis:
-- inference
-- memory
-- safety
-- agents
-- telemetry
-providers:
-  inference:
-  - provider_id: inline::meta-reference-0
-    provider_type: inline::meta-reference
-    config:
-      #model: Llama3.2-3B-Instruct
-      torch_seed: null
-      max_seq_len: 4096
-      max_batch_size: 1
-      create_distributed_process_group: true
-      checkpoint_dir: null
-  memory:
-  - provider_id: inline::faiss-0
-    provider_type: inline::faiss
-    config:
-      kvstore:
-        namespace: null
-        type: sqlite
-        db_path: /home/dvrogozh/.llama/runtime/faiss_store.db
-  #- provider_id: remote::chromadb-1
-  #  provider_type: remote::chromadb
-  #  config:
-  #    host: localhost
-  #    port: null
-  #    protocol: http
-  #- provider_id: remote::pgvector-2
-  #  provider_type: remote::pgvector
-  #  config:
-  #    host: localhost
-  #    port: 5432
-  #    db: postgres
-  #    user: postgres
-  #    password: mysecretpassword
-  safety:
-  - provider_id: inline::llama-guard-0
-    provider_type: inline::llama-guard
-    config:
-      excluded_categories: []
-  agents:
-  - provider_id: inline::meta-reference-0
-    provider_type: inline::meta-reference
-    config:
-      persistence_store:
-        namespace: null
-        type: sqlite
-        db_path: /home/dvrogozh/.llama/runtime/kvstore.db
-  telemetry:
-  - provider_id: inline::meta-reference-0
-    provider_type: inline::meta-reference
-    config: {}
-metadata_store: null
-models:
-  - model_id: Llama3.2-3B-Instruct
-    provider_id: inline::meta-reference-0
-shields: []
-memory_banks: []
-datasets: []
-scoring_fns: []
-eval_tasks: []
 ```
 
 ## Serving
@@ -172,86 +98,89 @@ Once distribution is built and configured, start it as follows:
 
 ```
 cd /path/to/llama-stack && llama stack run \
-  ~/.llama/distributions/llamastack-meta-reference-gpu/meta-reference-gpu-run.yaml
+  ~/.llama/distributions/llamastack-meta-reference-gpu/meta-reference-gpu-run.yaml \
+  --port 5001 \
+  --env INFERENCE_MODEL=Llama3.2-3B-Instruct
 ```
 
 Note that it's required for some reason to start the server from the llama-stack working copy. It did not work starting from arbitrary directory.
 
 On successful run you will see the following output from the server:
 ```
++ /home/dvrogozh/miniforge3/envs/llamastack-meta-reference-gpu/bin/python -m llama_stack.distribution.server.server --yaml-config /home/dvrogozh/.llama/distributions/llamastack-meta-reference-gpu/meta-reference-gpu-run.yaml --port 5001 --env INFERENCE_MODEL=Llama3.2-3B-Instruct
+Setting CLI environment variable INFERENCE_MODEL => Llama3.2-3B-Instruct
 Resolved 12 providers
- inner-inference => inline::meta-reference-0
- inner-memory => inline::faiss-0
+ inner-inference => meta-reference-inference
+ inner-memory => faiss
  models => __routing_table__
  inference => __autorouted__
- inner-safety => inline::llama-guard-0
+ inner-safety => llama-guard
  shields => __routing_table__
  safety => __autorouted__
  memory_banks => __routing_table__
  memory => __autorouted__
- agents => inline::meta-reference-0
- telemetry => inline::meta-reference-0
+ agents => meta-reference
+ telemetry => meta-reference
  inspect => __builtin__
 
 Loading model `Llama3.2-3B-Instruct`
 > initializing model parallel with size 1
 > initializing ddp with size 1
 > initializing pipeline with size 1
-Loaded in 4.33 seconds
+Loaded in 4.09 seconds
 Loaded model...
-`Llama3.2-3B-Instruct` already registered with `inline::meta-reference-0`
-Models: Llama3.2-3B-Instruct served by inline::meta-reference-0
+Models: Llama3.2-3B-Instruct served by meta-reference-inference
 
-Serving API shields
- GET /shields/get
- GET /shields/list
- POST /shields/register
-Serving API safety
- POST /safety/run_shield
-Serving API agents
- POST /agents/create
- POST /agents/session/create
- POST /agents/turn/create
- POST /agents/delete
- POST /agents/session/delete
- POST /agents/session/get
- POST /agents/step/get
- POST /agents/turn/get
-Serving API memory_banks
- GET /memory_banks/get
- GET /memory_banks/list
- POST /memory_banks/register
- POST /memory_banks/unregister
-Serving API models
- GET /models/get
- GET /models/list
- POST /models/register
- POST /models/unregister
-Serving API inspect
- GET /health
- GET /providers/list
- GET /routes/list
-Serving API memory
- POST /memory/insert
- POST /memory/query
-Serving API inference
- POST /inference/chat_completion
- POST /inference/completion
- POST /inference/embeddings
 Serving API telemetry
- GET /telemetry/get_trace
- POST /telemetry/log_event
+ GET /alpha/telemetry/get-trace
+ POST /alpha/telemetry/log-event
+Serving API memory
+ POST /alpha/memory/insert
+ POST /alpha/memory/query
+Serving API agents
+ POST /alpha/agents/create
+ POST /alpha/agents/session/create
+ POST /alpha/agents/turn/create
+ POST /alpha/agents/delete
+ POST /alpha/agents/session/delete
+ POST /alpha/agents/session/get
+ POST /alpha/agents/step/get
+ POST /alpha/agents/turn/get
+Serving API inference
+ POST /alpha/inference/chat-completion
+ POST /alpha/inference/completion
+ POST /alpha/inference/embeddings
+Serving API memory_banks
+ GET /alpha/memory-banks/get
+ GET /alpha/memory-banks/list
+ POST /alpha/memory-banks/register
+ POST /alpha/memory-banks/unregister
+Serving API shields
+ GET /alpha/shields/get
+ GET /alpha/shields/list
+ POST /alpha/shields/register
+Serving API models
+ GET /alpha/models/get
+ GET /alpha/models/list
+ POST /alpha/models/register
+ POST /alpha/models/unregister
+Serving API inspect
+ GET /alpha/health
+ GET /alpha/providers/list
+ GET /alpha/routes/list
+Serving API safety
+ POST /alpha/safety/run-shield
 
-Listening on ['::', '0.0.0.0']:5000
-INFO:     Started server process [1397529]
+Listening on ['::', '0.0.0.0']:5001
+INFO:     Started server process [1501449]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     Uvicorn running on http://['::', '0.0.0.0']:5000 (Press CTRL+C to quit)
+INFO:     Uvicorn running on http://['::', '0.0.0.0']:5001 (Press CTRL+C to quit)
 ```
 
 To verify that server really handles incoming requests, run the following:
 ```
-curl http://localhost:5000/inference/chat_completion \
+curl http://localhost:5001/alpha/inference/chat-completion \
 -H "Content-Type: application/json" \
 -d '{
     "model_id": "Llama3.2-3B-Instruct",
@@ -278,7 +207,7 @@ The output will be similar to the following (will be on a single line vs. what i
 ```
 
 [llama-stack]: https://github.com/meta-llama/llama-stack
-[0784284]: https://github.com/meta-llama/llama-stack/commit/0784284ab582ec864a0a203102c2aaac110d54be
+[91e7efb]: https://github.com/meta-llama/llama-stack/commit/91e7efbc91c729d74c5cf9b3947d3e8acc1fbb71
 [0001-feat-enable-xpu-support-for-meta-reference-stack.patch]: patches/llama-stack/0001-feat-enable-xpu-support-for-meta-reference-stack.patch
 
 [llama-models]: https://github.com/meta-llama/llama-models
@@ -288,3 +217,5 @@ The output will be similar to the following (will be on a single line vs. what i
 
 [0001-Add-optional-arg-to-specify-device-for-Transformer-m.patch]: patches/llama-models/0001-Add-optional-arg-to-specify-device-for-Transformer-m.patch
 [0002-Add-option-to-initialize-multimodal-model-on-devices.patch]: patches/llama-models/0002-Add-option-to-initialize-multimodal-model-on-devices.patch
+
+[Meta Reference Distribution]: https://github.com/meta-llama/llama-stack/blob/91e7efbc91c729d74c5cf9b3947d3e8acc1fbb71/docs/source/getting_started/distributions/self_hosted_distro/meta-reference-gpu.md
