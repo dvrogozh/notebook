@@ -7,9 +7,9 @@
 
 [llama-stack] provides building blocks to build llama applications. It contains API specifications, API providers and distributions. Distributions can be used to build llama stack servers to serve applications.
 
-As of [91e7efb] llama-stack requires patches to support Intel GPUs via PyTorch XPU backend:
+As of [6bcd1bd] llama-stack requires patches to support Intel GPUs via PyTorch XPU backend:
 
-* Patches for [llama-stack] at [91e7efb]:
+* Patches for [llama-stack] at [6bcd1bd]:
 
   * [0001-feat-enable-xpu-support-for-meta-reference-stack.patch]
 
@@ -207,7 +207,7 @@ The output will be similar to the following (will be on a single line vs. what i
 ```
 
 [llama-stack]: https://github.com/meta-llama/llama-stack
-[91e7efb]: https://github.com/meta-llama/llama-stack/commit/91e7efbc91c729d74c5cf9b3947d3e8acc1fbb71
+[6bcd1bd]: https://github.com/meta-llama/llama-stack/commit/6bcd1bd9f10a7bdda040e9549828770d5793145b
 [0001-feat-enable-xpu-support-for-meta-reference-stack.patch]: patches/llama-stack/0001-feat-enable-xpu-support-for-meta-reference-stack.patch
 
 [llama-models]: https://github.com/meta-llama/llama-models
@@ -218,4 +218,4 @@ The output will be similar to the following (will be on a single line vs. what i
 [0001-Add-optional-arg-to-specify-device-for-Transformer-m.patch]: patches/llama-models/0001-Add-optional-arg-to-specify-device-for-Transformer-m.patch
 [0002-Add-option-to-initialize-multimodal-model-on-devices.patch]: patches/llama-models/0002-Add-option-to-initialize-multimodal-model-on-devices.patch
 
-[Meta Reference Distribution]: https://github.com/meta-llama/llama-stack/blob/91e7efbc91c729d74c5cf9b3947d3e8acc1fbb71/docs/source/getting_started/distributions/self_hosted_distro/meta-reference-gpu.md
+[Meta Reference Distribution]: https://github.com/meta-llama/llama-stack/blob/6bcd1bd9f10a7bdda040e9549828770d5793145b/docs/source/distributions/self_hosted_distro/meta-reference-gpu.md
