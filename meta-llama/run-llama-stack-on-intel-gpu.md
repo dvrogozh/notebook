@@ -9,18 +9,18 @@
 
 As of [6bcd1bd] llama-stack requires patches to support Intel GPUs via PyTorch XPU backend:
 
-* Patches for [llama-stack] at [6bcd1bd]:
+* Patches for [llama-stack] at [6bcd1bd] (from [llama-stack#558]):
 
   * [0001-feat-enable-xpu-support-for-meta-reference-stack.patch]
 
-* Patches for [llama-models] at [ec6b563]:
+* Patches for [llama-models] at [ec6b563] (from [llama-models#165]):
 
   * [0001-Add-optional-arg-to-specify-device-for-Transformer-m.patch]
   * [0002-Add-option-to-initialize-multimodal-model-on-devices.patch]
 
 ## Install `llama-stack`
 
-llama-stack package provides `llama` cli tool to build and manage LLama Stack Distributions and models. Download, patch and install llama-stack as follows:
+llama-stack package provides `llama` cli tool to build and manage LLama Stack Distributions and models. Download, patch and install llama-stack as follows (patch taken from [llama-stack#558] PR):
 
 ```
 git clone https://github.com/meta-llama/llama-stack.git && cd llama-stack
@@ -209,6 +209,7 @@ The output will be similar to the following (will be on a single line vs. what i
 [llama-stack]: https://github.com/meta-llama/llama-stack
 [6bcd1bd]: https://github.com/meta-llama/llama-stack/commit/6bcd1bd9f10a7bdda040e9549828770d5793145b
 [0001-feat-enable-xpu-support-for-meta-reference-stack.patch]: patches/llama-stack/0001-feat-enable-xpu-support-for-meta-reference-stack.patch
+[llama-stack#558]: https://github.com/meta-llama/llama-stack/pull/558
 
 [llama-models]: https://github.com/meta-llama/llama-models
 [ec6b563]: https://github.com/meta-llama/llama-models/commit/ec6b56330258f6c544a6ca95c52a2aee09d8e3ca
