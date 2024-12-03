@@ -1,0 +1,175 @@
+From d8a885d3d35c4512f665357ab3c25a54dc5731ca Mon Sep 17 00:00:00 2001
+From: Dmitry Rogozhkin <dmitry.v.rogozhkin@intel.com>
+Date: Tue, 3 Dec 2024 10:51:04 -0800
+Subject: [PATCH] feat: support non-cuda devices for text models
+
+This commit adds support of non-cuda pytorch backend devices
+to text models. Commit extends existing test to run for the
+externally specified device (cuda is a default). Commit verified on
+Llama3.2-3B-Instruct model for:
+* "cuda" device type on NVidia A10 GPU
+* "cpu" device type
+* "xpu" device type on Intel Data Center Max Series GPU (PVC)
+
+Co-authored-by: anordin95 <alexander.f.nordin@gmail.com>
+Signed-off-by: Dmitry Rogozhkin <dmitry.v.rogozhkin@intel.com>
+---
+ models/llama3/reference_impl/generation.py | 43 +++++++++++++++++-----
+ models/llama3/reference_impl/model.py      |  4 +-
+ models/llama3/tests/api/test_generation.py |  1 +
+ 3 files changed, 37 insertions(+), 11 deletions(-)
+
+diff --git a/models/llama3/reference_impl/generation.py b/models/llama3/reference_impl/generation.py
+index a1b7b69..2882afb 100644
+--- a/models/llama3/reference_impl/generation.py
++++ b/models/llama3/reference_impl/generation.py
+@@ -74,6 +74,7 @@ class Llama:
+         model_parallel_size: Optional[int] = None,
+         tokenizer_path: Optional[str] = None,
+         seed: int = 1,
++        device: str = "cuda"
+     ):
+         """
+         Build a Llama instance by initializing and loading a model checkpoint.
+@@ -85,6 +86,7 @@ class Llama:
+             max_batch_size (int): Maximum batch size for inference.
+             model_parallel_size (Optional[int], optional): Number of model parallel processes.
+                 If not provided, it's determined from the environment. Defaults to None.
++            device (str, optional): Device to use, e.g. cuda (default), xpu, cpu, etc.
+ 
+         Returns:
+             Llama: An instance of the Llama class with the loaded model and tokenizer.
+@@ -92,6 +94,7 @@ class Llama:
+         Raises:
+             AssertionError: If there are no checkpoint files in the specified directory,
+                 or if the model parallel size does not match the number of checkpoint files.
++            RuntimeError: If PyTorch backend for the specified device is not available.
+ 
+ 
+         Note:
+@@ -99,8 +102,16 @@ class Llama:
+             and loads the pre-trained model and tokenizer.
+         """
+ 
++        device = torch.device(device)
++        if (device.type == "cuda" and not torch.cuda.is_available() or
++            device.type == "xpu" and not torch.xpu.is_available()):
++            raise RuntimeError(f"PyTorch backend for {device.type} device type is not available")
++
+         if not torch.distributed.is_initialized():
+-            torch.distributed.init_process_group("nccl")
++            if device.type == "cuda":
++                torch.distributed.init_process_group("nccl")
++            else:
++                torch.distributed.init_process_group("gloo")
+ 
+         if not model_parallel_is_initialized():
+             if model_parallel_size is None:
+@@ -108,7 +119,10 @@ class Llama:
+             initialize_model_parallel(model_parallel_size)
+ 
+         local_rank = int(os.environ.get("LOCAL_RANK", 0))
+-        torch.cuda.set_device(local_rank)
++        if device.type == "cuda":
++            torch.cuda.set_device(local_rank)
++        elif device.type == "xpu":
++            torch.xpu.set_device(local_rank)
+ 
+         torch.manual_seed(seed)
+ 
+@@ -138,10 +152,20 @@ class Llama:
+             tokenizer = Tokenizer.get_instance()
+ 
+         assert model_args.vocab_size == tokenizer.n_words
+-        if torch.cuda.is_bf16_supported():
+-            torch.set_default_tensor_type(torch.cuda.BFloat16Tensor)
++        torch.set_default_device(device)
++        if device.type == "cuda":
++            if torch.cuda.is_bf16_supported():
++                torch.set_default_dtype(torch.bfloat16)
++            else:
++                torch.set_default_dtype(torch.half)
++        elif device.type == "xpu":
++            if torch.xpu.is_bf16_supported():
++                torch.set_default_dtype(torch.bfloat16)
++            else:
++                torch.set_default_dtype(torch.half)
+         else:
+-            torch.set_default_tensor_type(torch.cuda.HalfTensor)
++            torch.set_default_dtype(torch.half)
++
+         if model_args.vision_chunk_size > 0:
+             from .multimodal.model import CrossAttentionTransformer
+ 
+@@ -150,6 +174,7 @@ class Llama:
+         else:
+             model = Transformer(model_args)
+         model.load_state_dict(checkpoint, strict=True)
++        model.to(device)
+         print(f"Loaded in {time.time() - start_time:.2f} seconds")
+ 
+         return Llama(model, tokenizer, model_args)
+@@ -213,14 +238,14 @@ class Llama:
+             )
+ 
+         pad_id = self.tokenizer.pad_id
+-        tokens = torch.full((bsz, total_len), pad_id, dtype=torch.long, device="cuda")
++        tokens = torch.full((bsz, total_len), pad_id, dtype=torch.long)
+         for k, t in enumerate(prompt_tokens):
+-            tokens[k, : len(t)] = torch.tensor(t, dtype=torch.long, device="cuda")
++            tokens[k, : len(t)] = torch.tensor(t, dtype=torch.long)
+         if logprobs:
+             token_logprobs = torch.zeros_like(tokens, dtype=torch.float)
+ 
+         prev_pos = 0
+-        eos_reached = torch.tensor([False] * bsz, device="cuda")
++        eos_reached = torch.tensor([False] * bsz)
+         input_text_mask = tokens != pad_id
+ 
+         if echo:
+@@ -237,7 +262,7 @@ class Llama:
+         for cur_pos in range(min_prompt_len, total_len):
+             if is_vision:
+                 position_ids = torch.arange(
+-                    prev_pos, cur_pos, dtype=torch.long, device="cuda"
++                    prev_pos, cur_pos, dtype=torch.long
+                 )
+                 text_only_inference = model_input.vision is None
+                 logits = self.model.forward(
+diff --git a/models/llama3/reference_impl/model.py b/models/llama3/reference_impl/model.py
+index 099a1ed..0713544 100644
+--- a/models/llama3/reference_impl/model.py
++++ b/models/llama3/reference_impl/model.py
+@@ -158,7 +158,7 @@ class Attention(nn.Module):
+                 self.n_local_kv_heads,
+                 self.head_dim,
+             )
+-        ).cuda()
++        )
+         self.cache_v = torch.zeros(
+             (
+                 args.max_batch_size,
+@@ -166,7 +166,7 @@ class Attention(nn.Module):
+                 self.n_local_kv_heads,
+                 self.head_dim,
+             )
+-        ).cuda()
++        )
+ 
+     def forward(
+         self,
+diff --git a/models/llama3/tests/api/test_generation.py b/models/llama3/tests/api/test_generation.py
+index a71738b..259e3ae 100644
+--- a/models/llama3/tests/api/test_generation.py
++++ b/models/llama3/tests/api/test_generation.py
+@@ -33,6 +33,7 @@ def build_generator(env_var: str):
+         max_seq_len=128,
+         max_batch_size=1,
+         model_parallel_size=1,
++        device=os.getenv("DEVICE", "cuda")
+     )
+ 
+ 
+-- 
+2.34.1
+

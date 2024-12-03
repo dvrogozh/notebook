@@ -1,16 +1,16 @@
-From cc788054276114390871e5172b1b1e360f14b365 Mon Sep 17 00:00:00 2001
+From 4456af701f064ca434490711f8ca13e7e60054e0 Mon Sep 17 00:00:00 2001
 From: Dmitry Rogozhkin <dmitry.v.rogozhkin@intel.com>
 Date: Mon, 18 Nov 2024 16:00:55 -0800
 Subject: [PATCH] feat: enable xpu support for meta-reference stack
 
-Requires: https://github.com/meta-llama/llama-models/pull/165
+Requires: https://github.com/meta-llama/llama-models/pull/233
 Signed-off-by: Dmitry Rogozhkin <dmitry.v.rogozhkin@intel.com>
 ---
- .../inference/meta_reference/generation.py    | 38 +++++++++++++------
- 1 file changed, 26 insertions(+), 12 deletions(-)
+ .../inference/meta_reference/generation.py    | 45 +++++++++++++------
+ 1 file changed, 32 insertions(+), 13 deletions(-)
 
 diff --git a/llama_stack/providers/inline/inference/meta_reference/generation.py b/llama_stack/providers/inline/inference/meta_reference/generation.py
-index 080e33b..fbced7c 100644
+index 080e33b..ecc8c9f 100644
 --- a/llama_stack/providers/inline/inference/meta_reference/generation.py
 +++ b/llama_stack/providers/inline/inference/meta_reference/generation.py
 @@ -91,7 +91,10 @@ class Llama:
@@ -31,87 +31,86 @@ index 080e33b..fbced7c 100644
          local_rank = int(os.environ.get("LOCAL_RANK", 0))
 -        torch.cuda.set_device(local_rank)
 +        if torch.cuda.is_available():
-+            device = 'cuda'
++            device = "cuda"
 +            torch.cuda.set_device(local_rank)
 +        elif torch.xpu.is_available():
-+            device = 'xpu'
++            device = "xpu"
 +            torch.xpu.set_device(local_rank)
 +        else:
 +            raise NotImplementedError("Devices other than CUDA and XPU are not supported yet")
  
          # seed must be the same in all processes
          if config.torch_seed is not None:
-@@ -176,19 +186,21 @@ class Llama:
+@@ -176,10 +186,17 @@ class Llama:
                      "Currently int4 and fp8 are the only supported quantization methods."
                  )
          else:
 -            if torch.cuda.is_bf16_supported():
 -                torch.set_default_tensor_type(torch.cuda.BFloat16Tensor)
-+            if torch.cuda.is_bf16_supported() or torch.xpu.is_bf16_supported():
-+                torch.set_default_dtype(torch.bfloat16)
-             else:
+-            else:
 -                torch.set_default_tensor_type(torch.cuda.HalfTensor)
-+                torch.set_default_dtype(torch.half)
++            if device == "cuda":
++                if torch.cuda.is_bf16_supported():
++                    torch.set_default_tensor_type(torch.cuda.BFloat16Tensor)
++                else:
++                    torch.set_default_tensor_type(torch.cuda.HalfTensor)
++            elif device == "xpu":
++                torch.set_default_device(device)
++                if torch.xpu.is_bf16_supported():
++                    torch.set_default_dtype(torch.bfloat16)
++                else:
++                    torch.set_default_dtype(torch.half)
              if model_args.vision_chunk_size > 0:
                  model = CrossAttentionTransformer(model_args)
                  model.setup_cache(model_args.max_batch_size, torch.bfloat16)
-             else:
--                model = Transformer(model_args)
-+                model = Transformer(model_args, device=device)
+@@ -187,6 +204,8 @@ class Llama:
+                 model = Transformer(model_args)
              model.load_state_dict(state_dict, strict=False)
  
 +        model.to(device)
 +
          log.info(f"Loaded in {time.time() - start_time:.2f} seconds")
--        return Llama(model, tokenizer, model_args, llama_model)
-+        return Llama(model, tokenizer, model_args, llama_model, device)
+         return Llama(model, tokenizer, model_args, llama_model)
  
-     def __init__(
-         self,
-@@ -196,12 +208,14 @@ class Llama:
+@@ -195,7 +214,7 @@ class Llama:
+         model: Transformer,
          tokenizer: Tokenizer,
          args: ModelArgs,
-         llama_model: str,
-+        device: torch.device = torch.device('cuda')
+-        llama_model: str,
++        llama_model: str
      ):
          self.args = args
          self.model = model
-         self.tokenizer = tokenizer
-         self.formatter = ChatFormat(tokenizer)
-         self.llama_model = llama_model
-+        self.device = device
- 
-     @torch.inference_mode()
-     def generate(
-@@ -253,14 +267,14 @@ class Llama:
+@@ -253,14 +272,14 @@ class Llama:
              )
  
          pad_id = self.tokenizer.pad_id
 -        tokens = torch.full((bsz, total_len), pad_id, dtype=torch.long, device="cuda")
-+        tokens = torch.full((bsz, total_len), pad_id, dtype=torch.long, device=self.device)
++        tokens = torch.full((bsz, total_len), pad_id, dtype=torch.long)
          for k, t in enumerate(prompt_tokens):
 -            tokens[k, : len(t)] = torch.tensor(t, dtype=torch.long, device="cuda")
-+            tokens[k, : len(t)] = torch.tensor(t, dtype=torch.long, device=self.device)
++            tokens[k, : len(t)] = torch.tensor(t, dtype=torch.long)
          if logprobs:
-             token_logprobs = torch.zeros_like(tokens, dtype=torch.float)
+-            token_logprobs = torch.zeros_like(tokens, dtype=torch.float)
++            token_logprobs = torch.zeros_like(tokens)
  
          prev_pos = 0
 -        eos_reached = torch.tensor([False] * bsz, device="cuda")
-+        eos_reached = torch.tensor([False] * bsz, device=self.device)
++        eos_reached = torch.tensor([False] * bsz)
          input_text_mask = tokens != pad_id
          if min_prompt_len == total_len:
              # TODO(ashwin): unify this branch with the one below and figure out multimodal crap
-@@ -272,11 +286,11 @@ class Llama:
+@@ -272,11 +291,11 @@ class Llama:
                  ignore_index=pad_id,
              )
  
 -        stop_tokens = torch.tensor(self.tokenizer.stop_tokens, device="cuda")
-+        stop_tokens = torch.tensor(self.tokenizer.stop_tokens, device=self.device)
++        stop_tokens = torch.tensor(self.tokenizer.stop_tokens)
          for cur_pos in range(min_prompt_len, total_len):
              if is_vision:
                  position_ids = torch.arange(
 -                    prev_pos, cur_pos, dtype=torch.long, device="cuda"
-+                    prev_pos, cur_pos, dtype=torch.long, device=self.device
++                    prev_pos, cur_pos, dtype=torch.long
                  )
                  logits = self.model.forward(
                      position_ids,
