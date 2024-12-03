@@ -13,10 +13,9 @@ As of [6bcd1bd] llama-stack requires patches to support Intel GPUs via PyTorch X
 
   * [0001-feat-enable-xpu-support-for-meta-reference-stack.patch]
 
-* Patches for [llama-models] at [ec6b563] (from [llama-models#165]):
+* Patches for [llama-models] at [17107db] (from [llama-models#233]):
 
-  * [0001-Add-optional-arg-to-specify-device-for-Transformer-m.patch]
-  * [0002-Add-option-to-initialize-multimodal-model-on-devices.patch]
+  * [0001-feat-support-non-cuda-devices-for-text-models.patch]
 
 ## Install `llama-stack`
 
@@ -57,14 +56,13 @@ llama stack build --template meta-reference-gpu --image-type conda
 
 Upon completion `llamastack-meta-reference-gpu` Conda virtual environment will be created. Enter environment and make the following customizations
 
-* Patch and reinstall [llama-models] to enable non-CUDA devices as follows. These patches are taken from [llama-models#165] PR.
+* Patch and reinstall [llama-models] to enable non-CUDA devices as follows. These patches are taken from [llama-models#233] PR.
 
 ```
 conda activate llamastack-meta-reference-gpu
 git clone https://github.com/meta-llama/llama-models.git && cd llama-models
-git reset --hard ec6b563
-git am $PATCHES/llama-models/0001-Add-optional-arg-to-specify-device-for-Transformer-m.patch
-git am $PATCHES/llama-models/0002-Add-option-to-initialize-multimodal-model-on-devices.patch
+git reset --hard 17107db
+git am $PATCHES/llama-models/0001-feat-support-non-cuda-devices-for-text-models.patch
 pip uninstall -y llama-models
 pip install -e .
 ```
@@ -212,11 +210,9 @@ The output will be similar to the following (will be on a single line vs. what i
 [llama-stack#558]: https://github.com/meta-llama/llama-stack/pull/558
 
 [llama-models]: https://github.com/meta-llama/llama-models
-[ec6b563]: https://github.com/meta-llama/llama-models/commit/ec6b56330258f6c544a6ca95c52a2aee09d8e3ca
+[17107db]: https://github.com/meta-llama/llama-models/commit/17107dbe165f48270eebb17014ba880c6eb6a7c9
+[llama-models#233]: https://github.com/meta-llama/llama-models/pull/233
 
-[llama-models#165]: https://github.com/meta-llama/llama-models/pull/165
-
-[0001-Add-optional-arg-to-specify-device-for-Transformer-m.patch]: patches/llama-models/0001-Add-optional-arg-to-specify-device-for-Transformer-m.patch
-[0002-Add-option-to-initialize-multimodal-model-on-devices.patch]: patches/llama-models/0002-Add-option-to-initialize-multimodal-model-on-devices.patch
+[0001-feat-support-non-cuda-devices-for-text-models.patch]: patches/llama-models/0001-feat-support-non-cuda-devices-for-text-models.patch
 
 [Meta Reference Distribution]: https://github.com/meta-llama/llama-stack/blob/6bcd1bd9f10a7bdda040e9549828770d5793145b/docs/source/distributions/self_hosted_distro/meta-reference-gpu.md
