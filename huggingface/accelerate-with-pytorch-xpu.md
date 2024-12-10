@@ -6,12 +6,24 @@ Haggingface Accelerate supports PyTorch XPU backend starting from version `0.32.
 
 # Testing
 
-Accelerate library can be formally tested for XPU backend by the project included tests on the system with supported Intel GPU graphics:
+Accelerate library can be formally tested for XPU backend by the project included tests on the system with supported Intel GPU graphics. To run tests:
+
+* Install Accelerate library and test dependencies:
+
+```
+pip install -e .
+pip install -e ".[dev]"
+```
+
+* Execute tests:
 
 ```
 cd /path/to/accelerate/clone/copy
 python3 -m pytest tests
 ```
+
+> [!NOTE]
+> Accelerate depends on PyTorch `torch` package which gets installed during installation of `accelerate`. If you need to test against different version of PyTorch – reinstall it after installing Accelerate.
 
 # Using with PyTorch 2.5
 
