@@ -6,7 +6,16 @@ Haggingface Transformers support PyTorch XPU backend starting from version `4.42
 
 # Testing
 
-Transformers library can be formally tested for XPU backend by the project included tests on the system with supported Intel GPU graphics. To run tests first create `spec.py` file with the following contents:
+Transformers library can be formally tested for XPU backend by the project included tests on the system with supported Intel GPU graphics. To run tests:
+
+* Install Transformers library and test dependencies:
+
+```
+pip install -e .
+pip install -e ".[dev]"
+```
+
+* Create `spec.py` file with the following contents:
 
 ```
 import torch
@@ -18,12 +27,15 @@ EMPTY_CACHE_FN = torch.xpu.empty_cache
 DEVICE_COUNT_FN = torch.xpu.device_count
 ```
 
-After that tests can be executed as follows:
+* After that tests can be executed as follows:
 
 ```
 cd /path/to/transformers/clone/copy
 TRANSFORMERS_TEST_DEVICE_SPEC=spec.py python3 -m pytest --pspec tests/
 ```
+
+> [!NOTE]
+> Some Transformers tests depend on `torchvision` built with `libPNG`. Install on Ubuntu with `apt-get install libpng-dev`, then rebuild `torchvision` and rerun affected Transformers tests.
 
 # Using with PyTorch 2.5
 
