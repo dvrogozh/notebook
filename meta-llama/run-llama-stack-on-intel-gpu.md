@@ -32,7 +32,19 @@ pip install -e .
 
 Once installed, `llama` cli will be available. We will use it to further setup and run LLama Server.
 
-## Build LLama Stack Distributions
+## Preparing to serve
+
+> [!NOTE]
+> Note that llama-stack model identifiers differ from those used at Huggingface side (for our model that's `Llama3.2-3B-Instruct` vs. `meta-llama/Llama-3.2-3B-Instruct`). Use `llama model list` to list models supported by llama-stack and their identifiers.
+> When working with llama-stack API use llama-stack model identifiers.
+
+Before starting the server download checkpoints for the model you plan to serve. Checkpoints can be downloaded from different sources. For example, from Huggingface:
+
+```
+llama download --model-id Llama3.2-3B-Instruct --source huggingface
+```
+
+## Build and run LLama Stack Distributions
 
 llama-stack provides a number of templates to build LLama Servers (Distributions). Custom configs are also possible. Each distribution can be built either in a form of Docker image or Conda environment. These are 2 prerequisites and at least one of them needs to be installed before LLama Stack Distributions can be built and used:
 
@@ -43,7 +55,7 @@ For the hints on how to install and use Conda, read [here](../conda/how-to-use-c
 
 As of now Docker images are not available for PyTorch XPU backend. Below we will show how to build and setup Conda environments capable to work with XPU backend. 
 
-## Build meta-reference stack
+### Build meta-reference stack
 
 > [!NOTE]
 > See [Meta Reference Distribution] for details.
@@ -75,24 +87,7 @@ pip uninstall -y torch torchvision
 pip install torch torchvision --index-url https://download.pytorch.org/whl/nightly/xpu
 ```
 
-After that meta-reference stack should be able to work on Intel GPUs supported by PyTorch XPU backend.
-
-## Preparing to serve
-
-> [!NOTE]
-> Note that llama-stack model identifiers differ from those used at Huggingface side (for our model that's `Llama3.2-3B-Instruct` vs. `meta-llama/Llama-3.2-3B-Instruct`). Use `llama model list` to list models supported by llama-stack and their identifiers.
-> When working with llama-stack API use llama-stack model identifiers.
-
-Before starting the server download checkpoints for the model you plan to serve. Checkpoints can be downloaded from different sources. For example, from Huggingface:
-
-```
-llama download --model-id Llama3.2-3B-Instruct --source huggingface
-```
-
-## Serving
-
-Once distribution is built and configured, start it as follows:
-
+After that meta-reference stack should be able to work on Intel GPUs supported by PyTorch XPU backend. Start it as follows:
 
 ```
 cd /path/to/llama-stack && llama stack run \
@@ -101,7 +96,7 @@ cd /path/to/llama-stack && llama stack run \
   --env INFERENCE_MODEL=Llama3.2-3B-Instruct
 ```
 
-Note that it's required for some reason to start the server from the llama-stack working copy. It did not work starting from arbitrary directory.
+Note that it's required for some reason to start the server from the llama-stack working copy. It doesn't work starting from arbitrary directory.
 
 On successful run you will see the following output from the server:
 ```
@@ -175,6 +170,8 @@ INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://['::', '0.0.0.0']:5001 (Press CTRL+C to quit)
 ```
+
+## Verifying the server
 
 To verify that server really handles incoming requests, run the following:
 ```
