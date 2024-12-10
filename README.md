@@ -12,6 +12,7 @@ This repository contains my personal notes on using software components. I hope 
 
 * [Running Accelerate with PyTorch XPU backend](huggingface/accelerate-with-pytorch-xpu.md)
 * [Running Transformers with PyTorch XPU backend](huggingface/transformers-with-pytorch-xpu.md)
+* [Running TGI with PyTorch XPU backend](huggingface/tgi-with-pytorch-xpu.md)
 
 ## Meta-LLama
 
