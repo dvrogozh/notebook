@@ -7,9 +7,9 @@
 
 [llama-stack] provides building blocks to build llama applications. It contains API specifications, API providers and distributions. Distributions can be used to build llama stack servers to serve applications.
 
-As of [6bcd1bd] llama-stack requires patches to support Intel GPUs via PyTorch XPU backend:
+As of [bc1fddf] llama-stack requires patches to support Intel GPUs via PyTorch XPU backend:
 
-* Patches for [llama-stack] at [6bcd1bd] (from [llama-stack#558]):
+* Patches for [llama-stack] at [bc1fddf] (from [llama-stack#558]):
 
   * [0001-feat-enable-xpu-support-for-meta-reference-stack.patch]
 
@@ -171,6 +171,45 @@ INFO:     Application startup complete.
 INFO:     Uvicorn running on http://['::', '0.0.0.0']:5001 (Press CTRL+C to quit)
 ```
 
+### Build TGI stack
+
+> [!NOTE]
+> See [TGI Distribution] for details.
+
+TGI Distribution assumes that TGI server was previously configured and started. Follow [Running TGI with PyTorch XPU backend](../huggingface/tgi-with-pytorch-xpu.md) to start the one for Intel GPU. We will assume that TGI was started for Llama3.2-3B-Instruct model:
+
+```
+text-generation-launcher --model-id meta-llama/Llama-3.2-3B-Instruct --port 8080
+```
+
+Next, build TGI llama-stack Distribution:
+
+```
+llama stack build --template tgi --image-type conda
+```
+
+Since inference will be executed by TGI server it's not needed to further configure TGI llama-stack conda environment for XPU. At this point it's ready to serve. Start serving with:
+
+```
+cd /path/to/llama-stack && llama stack run \
+  ~/.llama/distributions/llamastack-tgi/tgi-run.yaml \
+  --port 5001 \
+  --env INFERENCE_MODEL=Llama3.2-3B-Instruct \
+  --env TGI_URL=http://127.0.0.1:8080
+```
+
+On successful run end of the output should be:
+
+```
+...
+Listening on ['::', '0.0.0.0']:5001
+INFO:     Started server process [1005804]
+INFO:     Waiting for application startup.
+INFO:     ASGI 'lifespan' protocol appears unsupported.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://['::', '0.0.0.0']:5001 (Press CTRL+C to quit)
+```
+
 ## Verifying the server
 
 To verify that server really handles incoming requests, run the following:
@@ -202,7 +241,7 @@ The output will be similar to the following (will be on a single line vs. what i
 ```
 
 [llama-stack]: https://github.com/meta-llama/llama-stack
-[6bcd1bd]: https://github.com/meta-llama/llama-stack/commit/6bcd1bd9f10a7bdda040e9549828770d5793145b
+[bc1fddf]: https://github.com/meta-llama/llama-stack/commit/bc1fddf1df68fd845ae01f517eb8979f151e10d9
 [0001-feat-enable-xpu-support-for-meta-reference-stack.patch]: patches/llama-stack/0001-feat-enable-xpu-support-for-meta-reference-stack.patch
 [llama-stack#558]: https://github.com/meta-llama/llama-stack/pull/558
 
@@ -212,4 +251,5 @@ The output will be similar to the following (will be on a single line vs. what i
 
 [0001-feat-support-non-cuda-devices-for-text-models.patch]: patches/llama-models/0001-feat-support-non-cuda-devices-for-text-models.patch
 
-[Meta Reference Distribution]: https://github.com/meta-llama/llama-stack/blob/6bcd1bd9f10a7bdda040e9549828770d5793145b/docs/source/distributions/self_hosted_distro/meta-reference-gpu.md
+[Meta Reference Distribution]: https://github.com/meta-llama/llama-stack/blob/bc1fddf1df68fd845ae01f517eb8979f151e10d9/docs/source/distributions/self_hosted_distro/meta-reference-gpu.md
+[TGI Distribution]: https://github.com/meta-llama/llama-stack/blob/bc1fddf1df68fd845ae01f517eb8979f151e10d9/docs/source/distributions/self_hosted_distro/tgi.md
