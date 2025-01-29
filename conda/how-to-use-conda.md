@@ -40,6 +40,11 @@ To create environment:
 conda create -y -n my-environment
 ```
 
+To create environment with specific Python version:
+```
+conda create -y -n my-environment python=3.12
+```
+
 To activate:
 ```
 conda activate my-environment
