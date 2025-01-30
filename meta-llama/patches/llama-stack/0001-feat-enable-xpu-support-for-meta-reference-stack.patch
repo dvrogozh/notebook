@@ -1,4 +1,4 @@
-From 4456af701f064ca434490711f8ca13e7e60054e0 Mon Sep 17 00:00:00 2001
+From 2018c3c386db716259b94b8ddcbea17e207b97a2 Mon Sep 17 00:00:00 2001
 From: Dmitry Rogozhkin <dmitry.v.rogozhkin@intel.com>
 Date: Mon, 18 Nov 2024 16:00:55 -0800
 Subject: [PATCH] feat: enable xpu support for meta-reference stack
@@ -10,12 +10,12 @@ Signed-off-by: Dmitry Rogozhkin <dmitry.v.rogozhkin@intel.com>
  1 file changed, 32 insertions(+), 13 deletions(-)
 
 diff --git a/llama_stack/providers/inline/inference/meta_reference/generation.py b/llama_stack/providers/inline/inference/meta_reference/generation.py
-index 080e33b..ecc8c9f 100644
+index a96409ca..66f97b42 100644
 --- a/llama_stack/providers/inline/inference/meta_reference/generation.py
 +++ b/llama_stack/providers/inline/inference/meta_reference/generation.py
-@@ -91,7 +91,10 @@ class Llama:
-         llama_model = model.core_model_id.value
- 
+@@ -98,7 +98,10 @@ class Llama:
+         """
+         llama_model_id = llama_model.core_model_id.value
          if not torch.distributed.is_initialized():
 -            torch.distributed.init_process_group("nccl")
 +            if torch.cuda.is_available():
@@ -23,9 +23,9 @@ index 080e33b..ecc8c9f 100644
 +            else:
 +                torch.distributed.init_process_group("gloo")
  
-         model_parallel_size = config.model_parallel_size
+         model_parallel_size = llama_model.pth_file_count
  
-@@ -99,7 +102,14 @@ class Llama:
+@@ -106,7 +109,14 @@ class Llama:
              initialize_model_parallel(model_parallel_size)
  
          local_rank = int(os.environ.get("LOCAL_RANK", 0))
@@ -41,7 +41,7 @@ index 080e33b..ecc8c9f 100644
  
          # seed must be the same in all processes
          if config.torch_seed is not None:
-@@ -176,10 +186,17 @@ class Llama:
+@@ -189,10 +199,17 @@ class Llama:
                      "Currently int4 and fp8 are the only supported quantization methods."
                  )
          else:
@@ -63,16 +63,16 @@ index 080e33b..ecc8c9f 100644
              if model_args.vision_chunk_size > 0:
                  model = CrossAttentionTransformer(model_args)
                  model.setup_cache(model_args.max_batch_size, torch.bfloat16)
-@@ -187,6 +204,8 @@ class Llama:
+@@ -200,6 +217,8 @@ class Llama:
                  model = Transformer(model_args)
              model.load_state_dict(state_dict, strict=False)
  
 +        model.to(device)
 +
          log.info(f"Loaded in {time.time() - start_time:.2f} seconds")
-         return Llama(model, tokenizer, model_args, llama_model)
+         return Llama(model, tokenizer, model_args, llama_model_id)
  
-@@ -195,7 +214,7 @@ class Llama:
+@@ -208,7 +227,7 @@ class Llama:
          model: Transformer,
          tokenizer: Tokenizer,
          args: ModelArgs,
@@ -81,7 +81,7 @@ index 080e33b..ecc8c9f 100644
      ):
          self.args = args
          self.model = model
-@@ -253,14 +272,14 @@ class Llama:
+@@ -266,14 +285,14 @@ class Llama:
              )
  
          pad_id = self.tokenizer.pad_id
@@ -100,7 +100,7 @@ index 080e33b..ecc8c9f 100644
          input_text_mask = tokens != pad_id
          if min_prompt_len == total_len:
              # TODO(ashwin): unify this branch with the one below and figure out multimodal crap
-@@ -272,11 +291,11 @@ class Llama:
+@@ -285,11 +304,11 @@ class Llama:
                  ignore_index=pad_id,
              )
  
