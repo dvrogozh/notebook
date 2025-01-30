@@ -7,15 +7,9 @@
 
 [llama-stack] provides building blocks to build llama applications. It contains API specifications, API providers and distributions. Distributions can be used to build llama stack servers to serve applications.
 
-As of [bc1fddf] llama-stack requires patches to support Intel GPUs via PyTorch XPU backend:
+As of [7fe25927] llama-stack requires patches to support Intel GPUs via PyTorch XPU backend:
 
-* Patches for [llama-stack] at [bc1fddf] (from [llama-stack#558]):
-
-  * [0001-feat-enable-xpu-support-for-meta-reference-stack.patch]
-
-* Patches for [llama-models] at [17107db] (from [llama-models#233]):
-
-  * [0001-feat-support-non-cuda-devices-for-text-models.patch]
+* [0001-feat-enable-xpu-support-for-meta-reference-stack.patch] (from [llama-stack#558])
 
 ## Install `llama-stack`
 
@@ -63,18 +57,17 @@ As of now Docker images are not available for PyTorch XPU backend. Below we will
 Let's start with meta-reference-gpu stack which is actually designed to work with NVidia GPUs, but we will further adjust it to work with Intel GPUs. To build it, execute:
 
 ```
-llama stack build --template meta-reference-gpu --image-type conda
+llama stack build --template meta-reference-gpu --image-type conda --image-name llama-stack-xpu
 ```
 
-Upon completion `llamastack-meta-reference-gpu` Conda virtual environment will be created. Enter environment and make the following customizations
+Upon completion `llama-stack-xpu` Conda virtual environment will be created. Enter environment and make the following customizations:
 
-* Patch and reinstall [llama-models] to enable non-CUDA devices as follows. These patches are taken from [llama-models#233] PR.
+* Reinstall [llama-models] with [224d48c] or later to enable non-CUDA devices:
 
 ```
-conda activate llamastack-meta-reference-gpu
+conda activate llama-stack-xpu
 git clone https://github.com/meta-llama/llama-models.git && cd llama-models
-git reset --hard 17107db
-git am $PATCHES/llama-models/0001-feat-support-non-cuda-devices-for-text-models.patch
+git reset --hard 224d48c
 pip uninstall -y llama-models
 pip install -e .
 ```
@@ -82,7 +75,7 @@ pip install -e .
 * Reinstall XPU capable version of PyTorch:
 
 ```
-conda activate llamastack-meta-reference-gpu
+conda activate llama-stack-xpu
 pip uninstall -y torch torchvision
 pip install torch torchvision --index-url https://download.pytorch.org/whl/nightly/xpu
 ```
@@ -91,82 +84,243 @@ After that meta-reference stack should be able to work on Intel GPUs supported b
 
 ```
 cd /path/to/llama-stack && llama stack run \
-  ~/.llama/distributions/llamastack-meta-reference-gpu/meta-reference-gpu-run.yaml \
+  ~/.llama/distributions/meta-reference-gpu/meta-reference-gpu-run.yaml \
+  --image-name llama-stack-xpu \
   --port 5001 \
   --env INFERENCE_MODEL=Llama3.2-3B-Instruct
 ```
 
 Note that it's required for some reason to start the server from the llama-stack working copy. It doesn't work starting from arbitrary directory.
 
-On successful run you will see the following output from the server:
+On successful run you will see output from the server similar to the following:
 ```
-+ /home/dvrogozh/miniforge3/envs/llamastack-meta-reference-gpu/bin/python -m llama_stack.distribution.server.server --yaml-config /home/dvrogozh/.llama/distributions/llamastack-meta-reference-gpu/meta-reference-gpu-run.yaml --port 5001 --env INFERENCE_MODEL=Llama3.2-3B-Instruct
+Using run configuration: /home/dvrogozh/.llama/distributions/meta-reference-gpu/meta-reference-gpu-run.yaml
+Using conda environment: llama-stack
++ /home/dvrogozh/miniforge3/envs/llama-stack/bin/python -m llama_stack.distribution.server.server --yaml-config /home/dvrogozh/.llama/distributions/meta-reference-gpu/meta-reference-gpu-run.yaml --port 5001 --env INFERENCE_MODEL=Llama3.2-3B-Instruct
 Setting CLI environment variable INFERENCE_MODEL => Llama3.2-3B-Instruct
-Resolved 12 providers
- inner-inference => meta-reference-inference
- inner-memory => faiss
- models => __routing_table__
- inference => __autorouted__
- inner-safety => llama-guard
- shields => __routing_table__
- safety => __autorouted__
- memory_banks => __routing_table__
- memory => __autorouted__
- agents => meta-reference
- telemetry => meta-reference
- inspect => __builtin__
+Using config file: /home/dvrogozh/.llama/distributions/meta-reference-gpu/meta-reference-gpu-run.yaml
+Run configuration:
+apis:
+- agents
+- datasetio
+- eval
+- inference
+- safety
+- scoring
+- telemetry
+- tool_runtime
+- vector_io
+container_image: null
+datasets: []
+eval_tasks: []
+image_name: meta-reference-gpu
+metadata_store:
+  db_path: /home/dvrogozh/.llama/distributions/meta-reference-gpu/registry.db
+  namespace: null
+  type: sqlite
+models:
+- metadata: {}
+  model_id: Llama3.2-3B-Instruct
+  model_type: !!python/object/apply:llama_stack.apis.models.models.ModelType
+  - llm
+  provider_id: meta-reference-inference
+  provider_model_id: null
+- metadata:
+    embedding_dimension: 384
+  model_id: all-MiniLM-L6-v2
+  model_type: !!python/object/apply:llama_stack.apis.models.models.ModelType
+  - embedding
+  provider_id: sentence-transformers
+  provider_model_id: null
+providers:
+  agents:
+  - config:
+      persistence_store:
+        db_path: /home/dvrogozh/.llama/distributions/meta-reference-gpu/agents_store.db
+        namespace: null
+        type: sqlite
+    provider_id: meta-reference
+    provider_type: inline::meta-reference
+  datasetio:
+  - config: {}
+    provider_id: huggingface
+    provider_type: remote::huggingface
+  - config: {}
+    provider_id: localfs
+    provider_type: inline::localfs
+  eval:
+  - config: {}
+    provider_id: meta-reference
+    provider_type: inline::meta-reference
+  inference:
+  - config:
+      checkpoint_dir: 'null'
+      max_seq_len: 4096
+      model: Llama3.2-3B-Instruct
+    provider_id: meta-reference-inference
+    provider_type: inline::meta-reference
+  - config: {}
+    provider_id: sentence-transformers
+    provider_type: inline::sentence-transformers
+  safety:
+  - config: {}
+    provider_id: llama-guard
+    provider_type: inline::llama-guard
+  scoring:
+  - config: {}
+    provider_id: basic
+    provider_type: inline::basic
+  - config: {}
+    provider_id: llm-as-judge
+    provider_type: inline::llm-as-judge
+  - config:
+      openai_api_key: '********'
+    provider_id: braintrust
+    provider_type: inline::braintrust
+  telemetry:
+  - config:
+      service_name: llama-stack
+      sinks: console,sqlite
+      sqlite_db_path: /home/dvrogozh/.llama/distributions/meta-reference-gpu/trace_store.db
+    provider_id: meta-reference
+    provider_type: inline::meta-reference
+  tool_runtime:
+  - config:
+      api_key: '********'
+      max_results: 3
+    provider_id: brave-search
+    provider_type: remote::brave-search
+  - config:
+      api_key: '********'
+      max_results: 3
+    provider_id: tavily-search
+    provider_type: remote::tavily-search
+  - config: {}
+    provider_id: code-interpreter
+    provider_type: inline::code-interpreter
+  - config: {}
+    provider_id: rag-runtime
+    provider_type: inline::rag-runtime
+  - config: {}
+    provider_id: model-context-protocol
+    provider_type: remote::model-context-protocol
+  vector_io:
+  - config:
+      kvstore:
+        db_path: /home/dvrogozh/.llama/distributions/meta-reference-gpu/faiss_store.db
+        namespace: null
+        type: sqlite
+    provider_id: faiss
+    provider_type: inline::faiss
+scoring_fns: []
+shields: []
+tool_groups:
+- args: null
+  mcp_endpoint: null
+  provider_id: tavily-search
+  toolgroup_id: builtin::websearch
+- args: null
+  mcp_endpoint: null
+  provider_id: rag-runtime
+  toolgroup_id: builtin::rag
+- args: null
+  mcp_endpoint: null
+  provider_id: code-interpreter
+  toolgroup_id: builtin::code_interpreter
+vector_dbs: []
+version: '2'
 
-Loading model `Llama3.2-3B-Instruct`
+Warning: `bwrap` is not available. Code interpreter tool will not work correctly.
 > initializing model parallel with size 1
 > initializing ddp with size 1
 > initializing pipeline with size 1
-Loaded in 4.09 seconds
-Loaded model...
-Models: Llama3.2-3B-Instruct served by meta-reference-inference
-
-Serving API telemetry
- GET /alpha/telemetry/get-trace
- POST /alpha/telemetry/log-event
-Serving API memory
- POST /alpha/memory/insert
- POST /alpha/memory/query
-Serving API agents
- POST /alpha/agents/create
- POST /alpha/agents/session/create
- POST /alpha/agents/turn/create
- POST /alpha/agents/delete
- POST /alpha/agents/session/delete
- POST /alpha/agents/session/get
- POST /alpha/agents/step/get
- POST /alpha/agents/turn/get
-Serving API inference
- POST /alpha/inference/chat-completion
- POST /alpha/inference/completion
- POST /alpha/inference/embeddings
-Serving API memory_banks
- GET /alpha/memory-banks/get
- GET /alpha/memory-banks/list
- POST /alpha/memory-banks/register
- POST /alpha/memory-banks/unregister
-Serving API shields
- GET /alpha/shields/get
- GET /alpha/shields/list
- POST /alpha/shields/register
+Serving API scoring
+ POST /v1/scoring/score
+ POST /v1/scoring/score-batch
 Serving API models
- GET /alpha/models/get
- GET /alpha/models/list
- POST /alpha/models/register
- POST /alpha/models/unregister
-Serving API inspect
- GET /alpha/health
- GET /alpha/providers/list
- GET /alpha/routes/list
+ GET /v1/models/{model_id}
+ GET /v1/models
+ POST /v1/models
+ DELETE /v1/models/{model_id}
+Serving API eval_tasks
+ GET /v1/eval-tasks/{eval_task_id}
+ GET /v1/eval-tasks
+ POST /v1/eval-tasks
 Serving API safety
- POST /alpha/safety/run-shield
+ POST /v1/safety/run-shield
+Serving API eval
+ POST /v1/eval/tasks/{task_id}/evaluations
+ DELETE /v1/eval/tasks/{task_id}/jobs/{job_id}
+ GET /v1/eval/tasks/{task_id}/jobs/{job_id}/result
+ GET /v1/eval/tasks/{task_id}/jobs/{job_id}
+ POST /v1/eval/tasks/{task_id}/jobs
+Serving API shields
+ GET /v1/shields/{identifier}
+ GET /v1/shields
+ POST /v1/shields
+Serving API tool_groups
+ GET /v1/tools/{tool_name}
+ GET /v1/toolgroups/{toolgroup_id}
+ GET /v1/toolgroups
+ GET /v1/tools
+ POST /v1/toolgroups
+ DELETE /v1/toolgroups/{toolgroup_id}
+Serving API inspect
+ GET /v1/health
+ GET /v1/inspect/providers
+ GET /v1/inspect/routes
+ GET /v1/version
+Serving API telemetry
+ GET /v1/telemetry/traces/{trace_id}/spans/{span_id}
+ GET /v1/telemetry/spans/{span_id}/tree
+ GET /v1/telemetry/traces/{trace_id}
+ POST /v1/telemetry/events
+ GET /v1/telemetry/spans
+ GET /v1/telemetry/traces
+ POST /v1/telemetry/spans/export
+Serving API vector_io
+ POST /v1/vector-io/insert
+ POST /v1/vector-io/query
+Serving API vector_dbs
+ GET /v1/vector-dbs/{vector_db_id}
+ GET /v1/vector-dbs
+ POST /v1/vector-dbs
+ DELETE /v1/vector-dbs/{vector_db_id}
+Serving API datasetio
+ POST /v1/datasetio/rows
+ GET /v1/datasetio/rows
+Serving API agents
+ POST /v1/agents
+ POST /v1/agents/{agent_id}/session
+ POST /v1/agents/{agent_id}/session/{session_id}/turn
+ DELETE /v1/agents/{agent_id}
+ DELETE /v1/agents/{agent_id}/session/{session_id}
+ GET /v1/agents/{agent_id}/session/{session_id}
+ GET /v1/agents/{agent_id}/session/{session_id}/turn/{turn_id}/step/{step_id}
+ GET /v1/agents/{agent_id}/session/{session_id}/turn/{turn_id}
+Serving API tool_runtime
+ POST /v1/tool-runtime/invoke
+ GET /v1/tool-runtime/list-tools
+ POST /v1/tool-runtime/rag-tool/insert
+ POST /v1/tool-runtime/rag-tool/query
+Serving API scoring_functions
+ GET /v1/scoring-functions/{scoring_fn_id}
+ GET /v1/scoring-functions
+ POST /v1/scoring-functions
+Serving API datasets
+ GET /v1/datasets/{dataset_id}
+ GET /v1/datasets
+ POST /v1/datasets
+ DELETE /v1/datasets/{dataset_id}
+Serving API inference
+ POST /v1/inference/chat-completion
+ POST /v1/inference/completion
+ POST /v1/inference/embeddings
 
 Listening on ['::', '0.0.0.0']:5001
-INFO:     Started server process [1501449]
+INFO:     Started server process [3561153]
 INFO:     Waiting for application startup.
+INFO:     ASGI 'lifespan' protocol appears unsupported.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://['::', '0.0.0.0']:5001 (Press CTRL+C to quit)
 ```
@@ -185,7 +339,7 @@ text-generation-launcher --model-id meta-llama/Llama-3.2-3B-Instruct --port 8080
 Next, build TGI llama-stack Distribution:
 
 ```
-llama stack build --template tgi --image-type conda
+llama stack build --template tgi --image-type conda --image-name llama-stack-tgi
 ```
 
 Since inference will be executed by TGI server it's not needed to further configure TGI llama-stack conda environment for XPU. At this point it's ready to serve. Start serving with:
@@ -193,12 +347,13 @@ Since inference will be executed by TGI server it's not needed to further config
 ```
 cd /path/to/llama-stack && llama stack run \
   ~/.llama/distributions/llamastack-tgi/tgi-run.yaml \
+  --image-name llama-stack-tgi \
   --port 5001 \
   --env INFERENCE_MODEL=Llama3.2-3B-Instruct \
   --env TGI_URL=http://127.0.0.1:8080
 ```
 
-On successful run end of the output should be:
+On successful run end of the output should be similar to the following:
 
 ```
 ...
@@ -212,44 +367,60 @@ INFO:     Uvicorn running on http://['::', '0.0.0.0']:5001 (Press CTRL+C to quit
 
 ## Verifying the server
 
+`llama-stack-client` can be used to connect to llama server. It gets installed as a dependency
+of `llama-stack` package we've initially installed. To use the client first configure the llama stack endpoint:
+
+```
+llama-stack-client configure --endpoint http://localhost:5001
+```
+
 To verify that server really handles incoming requests, run the following:
-```
-curl http://localhost:5001/alpha/inference/chat-completion \
--H "Content-Type: application/json" \
--d '{
-    "model_id": "Llama3.2-3B-Instruct",
-    "messages": [
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Write me a 2 sentence poem about the moon"}
-    ],
-    "sampling_params": {"temperature": 0.7, "seed": 42, "max_tokens": 512}
-}'
-```
 
-The output will be similar to the following (will be on a single line vs. what is shown below):
+* To query list of available models:
 
 ```
-{
-  "completion_message": {
-    "role": "assistant",
-    "content": "Here is a 2 sentence poem about the moon:\n\nSilent crescent in the midnight sky,\nA glowing beacon, passing us by.",
-    "stop_reason": "end_of_turn",
-    "tool_calls": []
-    },
-  "logprobs": null
-}
+# llama-stack-client models list
+┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
+┃ identifier         ┃ provider_id        ┃ provider_resource… ┃ metadata            ┃ model_type ┃
+┡━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━┩
+│ Llama3.2-3B-Instr… │ meta-reference-in… │ Llama3.2-3B-Instr… │ {}                  │ llm        │
+│ all-MiniLM-L6-v2   │ sentence-transfor… │ all-MiniLM-L6-v2   │ {'embedding_dimens… │ embedding  │
+│                    │                    │                    │ 384.0}              │            │
+└────────────────────┴────────────────────┴────────────────────┴─────────────────────┴────────────┘
+```
+
+* To run inference with the llama stack:
+
+```
+# llama-stack-client   inference chat-completion   --message "hello, what model are you?"
+ChatCompletionResponse(
+    completion_message=CompletionMessage(
+        content='Hello! I\'m an AI model, specifically a type of conversational AI designed to
+understand and respond to human language. I\'m a large language model, which means I was trained on
+a massive dataset of text from various sources, including books, articles, and online
+conversations.\n\nI don\'t have a specific "model" in the classical sense, but I\'m based on a type
+of neural network architecture called a transformer. This architecture is particularly well-suited
+for natural language processing tasks, such as understanding and generating human language.\n\nI\'m
+a cloud-based model, which means I\'m hosted on a network of servers and can be accessed through
+the internet. I don\'t have a physical body or consciousness, but I\'m designed to simulate
+conversation and answer questions to the best of my ability based on my training data.\n\nHow can I
+help you today?',
+        role='assistant',
+        stop_reason='end_of_turn',
+        tool_calls=[]
+    ),
+    logprobs=None
+)
 ```
 
 [llama-stack]: https://github.com/meta-llama/llama-stack
-[bc1fddf]: https://github.com/meta-llama/llama-stack/commit/bc1fddf1df68fd845ae01f517eb8979f151e10d9
+[7fe25927]: https://github.com/meta-llama/llama-stack/commit/7fe25927954d0ac00901091e3a01d06fc0ef09c9
 [0001-feat-enable-xpu-support-for-meta-reference-stack.patch]: patches/llama-stack/0001-feat-enable-xpu-support-for-meta-reference-stack.patch
 [llama-stack#558]: https://github.com/meta-llama/llama-stack/pull/558
 
 [llama-models]: https://github.com/meta-llama/llama-models
-[17107db]: https://github.com/meta-llama/llama-models/commit/17107dbe165f48270eebb17014ba880c6eb6a7c9
+[224d48c]: https://github.com/meta-llama/llama-models/commit/224d48ca38c985dc77e79a842d5e1e7a5c6832f3
 [llama-models#233]: https://github.com/meta-llama/llama-models/pull/233
 
-[0001-feat-support-non-cuda-devices-for-text-models.patch]: patches/llama-models/0001-feat-support-non-cuda-devices-for-text-models.patch
-
-[Meta Reference Distribution]: https://github.com/meta-llama/llama-stack/blob/bc1fddf1df68fd845ae01f517eb8979f151e10d9/docs/source/distributions/self_hosted_distro/meta-reference-gpu.md
-[TGI Distribution]: https://github.com/meta-llama/llama-stack/blob/bc1fddf1df68fd845ae01f517eb8979f151e10d9/docs/source/distributions/self_hosted_distro/tgi.md
+[Meta Reference Distribution]: https://github.com/meta-llama/llama-stack/blob/7fe25927954d0ac00901091e3a01d06fc0ef09c9/docs/source/distributions/self_hosted_distro/meta-reference-gpu.md
+[TGI Distribution]: https://github.com/meta-llama/llama-stack/blob/7fe25927954d0ac00901091e3a01d06fc0ef09c9/docs/source/distributions/self_hosted_distro/tgi.md
