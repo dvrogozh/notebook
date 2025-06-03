@@ -14,6 +14,10 @@ This repository contains my personal notes on using software components. I hope 
 * [Running Transformers with PyTorch XPU backend](huggingface/transformers-with-pytorch-xpu.md)
 * [Running TGI with PyTorch XPU backend](huggingface/tgi-with-pytorch-xpu.md)
 
+## IPEX
+
+* [Build recipes](ipex/build-recipes.md)
+
 ## Meta-LLama
 
 * [Run LLama Stack on Intel GPU](meta-llama/run-llama-stack-on-intel-gpu.md)
