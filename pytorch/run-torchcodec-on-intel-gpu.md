@@ -18,6 +18,13 @@ CMake Error at /home/dvrogozh/pytorch.xpu/lib/python3.12/site-packages/torch/sha
   The link interface of target "c10_xpu" contains:
 
     torch::xpurt
+
+  but the target was not found.  Possible reasons include:
+
+    * There is a typo in the target name.
+    * A find_package call is missing for an IMPORTED target.
+    * An ALIAS target is missing.
+
 ```
 
 Install build and runtime prerequisites:
