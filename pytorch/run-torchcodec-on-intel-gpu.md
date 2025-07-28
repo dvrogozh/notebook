@@ -46,6 +46,7 @@ Setup environment variables:
 . /opt/intel/oneapi/setvars.sh
 export PKG_CONFIG_PATH=~/_install/lib/pkgconfig/:$PKG_CONFIG_PATH
 export LD_LIBRARY_PATH=~/_install/lib/:$LD_LIBRARY_PATH
+export PATH=~/_install/bin/:$PATH
 ```
 
 Build and install ffmpeg:
