@@ -44,7 +44,7 @@ pip3 install \
 Setup environment variables:
 ```
 . /opt/intel/oneapi/setvars.sh
-export PKG_CONFIG_PATH=~/_install/lib/pkgconfig/:$LD_LIBRARY_PATH
+export PKG_CONFIG_PATH=~/_install/lib/pkgconfig/:$PKG_CONFIG_PATH
 export LD_LIBRARY_PATH=~/_install/lib/:$LD_LIBRARY_PATH
 ```
 
