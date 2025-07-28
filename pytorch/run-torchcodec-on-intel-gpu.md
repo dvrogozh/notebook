@@ -56,7 +56,7 @@ git clone https://github.com/FFmpeg/FFmpeg.git ffmpeg && cd ffmpeg
 git checkout n7.1.1
 ./configure \
   --prefix=$HOME/_install \
-  --libdir=$HOME/_install \
+  --libdir=$HOME/_install/lib \
   --disable-static \
   --disable-doc \
   --enable-shared \
