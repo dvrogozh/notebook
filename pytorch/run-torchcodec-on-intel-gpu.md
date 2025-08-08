@@ -30,6 +30,7 @@ CMake Error at /home/dvrogozh/pytorch.xpu/lib/python3.12/site-packages/torch/sha
 Install build and runtime prerequisites:
 ```
 sudo apt-get install -y \
+  libmp3lame-dev \
   libva-dev \
   libze-dev \
   nasm \
@@ -60,7 +61,8 @@ git checkout n7.1.1
   --disable-static \
   --disable-doc \
   --enable-shared \
-  --enable-vaapi
+  --enable-vaapi \
+  --enable-libmp3lame
 make -j$(nproc)
 make install
 ```
