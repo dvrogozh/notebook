@@ -67,6 +67,12 @@ make -j$(nproc)
 make install
 ```
 
+Note that TorchCodec is under active development and [PR-558] might be frequently rebased. Sometimes build of TorchCodec against arbitrary version of FFmpeg might fail. Typically this happens either if TorchCodec does not yet support selected newer version of FFmpeg (for example, from master) or if FFmpeg throws deprecation warnings on the APIs used in TorchCodec. If this happens, try to adjust selected FFmpeg version or patch TorchCodec to bypass the issue. Below are FFmpeg versions used to verify [PR-558] in respect to TorchCodec base commits:
+
+| TorchCodec | FFmpeg   |
+| ---------- | -------- |
+| [b01942c]  | `n6.1.2` |
+
 Fetch, patch and install TorchCodec:
 ```
 git clone https://github.com/pytorch/torchcodec.git && cd torchcodec
@@ -82,4 +88,45 @@ On successful setup it should be possible to execute TorchCodec tests. Most shou
 python3 -m pytest test/
 ```
 
+If running under Docker, make sure to map `-v /dev/dri/by-path:/dev/dri/by-path` as this file tree is used by [PR-558] to query PyTorch devices to `/dev/dri/` device files.
+
+In addition to the tests the following script can be used to dump rough decoded streams in RGB format:
+
+```
+import argparse
+import numpy
+import torch
+
+from torchcodec.decoders import VideoDecoder
+
+parser = argparse.ArgumentParser(description="TorchCodec decoder script")
+
+def _parse_slice(s):
+    ss = [int(e) if e.strip() else None for e in s.split(":")]
+    return slice(*ss)
+
+parser.add_argument("--input", "-i", type=str, required=True, help="Stream to decode")
+parser.add_argument("--output", "-o", type=str, required=True, help="Name of output YUV/RGB file")
+parser.add_argument("--device", "-d", type=str, default="cpu", help="PyTorch device to use (cpu, cuda, cuda:0, etc.)")
+parser.add_argument("--slice", "-s", default=slice(None), type=_parse_slice)
+
+args = parser.parse_args()
+
+def dump_rgb(filename, tensor):
+    tensor_numpy = torch.permute(tensor, (0,2,3,1)).numpy()
+    tensor_numpy.tofile(filename)
+
+decoder = VideoDecoder(args.input, device=args.device)
+print(decoder.metadata)
+dump_rgb(args.output, decoder[args.slice].cpu())
+```
+
+For example, on the test mp4 clip from TorchCodec repository:
+
+```
+python3 ../dump2.py -i test/resources/nasa_13013.mp4 -o out.rgb -d xpu -s 0:10
+```
+
 [TorchCodec]: https://github.com/pytorch/torchcodec.git
+[PR-558]: https://github.com/pytorch/torchcodec/pull/558
+[b01942c]: https://github.com/pytorch/torchcodec/commit/b01942c677c7660b54a925cccbe927a78c783287
