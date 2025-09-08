@@ -8,6 +8,10 @@ This repository contains my personal notes on using software components. I hope 
 
 * [How to use Conda](conda/how-to-use-conda.md)
 
+## FFmpeg
+
+* [FFmpeg with Vulkan Acceleration](ffmpeg/ffmpeg-with-vulkan-accceleration.md)
+
 ## Huggingface
 
 * [Running Accelerate with PyTorch XPU backend](huggingface/accelerate-with-pytorch-xpu.md)
